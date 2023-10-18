@@ -24,33 +24,34 @@ export class SceneRenderer
 {
     /**
      * @param {HTMLCanvasElement} canvas HTML canvas element
+     * @param {Number} width width of canvas
+     * @param {Number} height height of canvas
      */
-    constructor(canvas)
+    constructor(canvas, width, height)
     {
+        this.width = width
+        this.height = height
         this.shouldRender = false
         this.scene = new THREE.Scene()
         this.renderer = new THREE.WebGLRenderer({canvas, alpha: true})
         this.renderer.shadowMap.enabled = true
         this.renderer.shadowMap.type = THREE.PCFSoftShadowMap
-        this.renderer.toneMapping = THREE.LinearToneMapping
+        this.renderer.toneMapping = THREE.ACESFilmicToneMapping
         this.renderer.toneMappingExposure = 1
+        this.renderer.setPixelRatio(window.innerWidth/window.innerHeight)
         this.bloomObjects = []
         this.mainSceneObjects = []
         this.dataMap = new Map()
-
         this.bloomComposer = new EffectComposer(this.renderer)
         this.bloomComposer.renderToScreen = false
         this.ssaoComposer = new EffectComposer(this.renderer)
         this.ssaoComposer.renderToScreen = false
-        this.ssrComposer = new EffectComposer(this.renderer)
-        this.ssrComposer.renderToScreen = false
         this.sceneRenderComposer = new EffectComposer(this.renderer)
         this.sceneRenderComposer.renderToScreen = false
         this.finalComposer = new EffectComposer(this.renderer)
-
         this.bloomIntensity = 0
         this.bloomPercent = 1
-        this.sceneBloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), this.bloomIntensity, 0, 0)
+        this.sceneBloomPass = new UnrealBloomPass(new THREE.Vector2(this.width, this.height), this.bloomIntensity, 0, 0)
         this.renderPass = null
         this.ssaoPass = null
         this.ssaaPass = null
@@ -62,7 +63,7 @@ export class SceneRenderer
         this.fxaaPass = new ShaderPass(new THREE.ShaderMaterial(FXAAShader))
         this.colorBalancePass = new ColorBalancePass(new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3())
         this.gammaPass = new GammaCorrectionPass(2.2)
-        this.bloomComposer.addPass(new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 3, 1, 0))
+        this.bloomComposer.addPass(new UnrealBloomPass(new THREE.Vector2(this.width, this.height), 3, 1, 0))
         this.sceneRenderComposer.addPass(this.sceneBloomPass)
         this.finalComposer.addPass(this.pixelMergerPass)
         this.finalComposer.addPass(new PixelAdderPass(null, this.bloomComposer.readBuffer.texture, 1, 3))
@@ -79,8 +80,18 @@ export class SceneRenderer
         this.ssaaEnabled = false
         this.ssaoEnabled = false
         this.blackMaterial = new THREE.MeshBasicMaterial({color: new THREE.Color(0, 0, 0)})
-
         this.stats = null
+    }
+
+    /**
+     * Sets the width and height of canvas
+     * @param {Number} width width of canvas
+     * @param {Number} height height of canvas
+     */
+    setSize(width, height)
+    {
+        this.width = width
+        this.height = height
     }
 
     /**
@@ -284,6 +295,12 @@ export class SceneRenderer
     setBrightness(brightness) { this.brightnessPass.setBrightness(brightness) }
 
     /**
+     * Returns the maximum anisotropy value supported by the hardware
+     * @returns {Number} the maximum anisotropy value supported by the hardware
+     */
+    getMaxAnistropy() { this.renderer.capabilities.getMaxAnisotropy() }
+
+    /**
      * Shows the stats for the scene
      * @param {HTMLPreElement} preElement html pre element where the stats will be displayed
      */
@@ -356,7 +373,7 @@ export class SceneRenderer
         this._deletePassInComposer((this.ssaaEnabled) ? this.ssaaPass : this.renderPass, this.sceneRenderComposer)
         this.renderPass = new RenderPass(this.scene, threeJsCamera)
         this.bloomComposer.insertPass(this.renderPass, 0)
-        this.ssaoPass = new SSAOPass(this.scene, threeJsCamera, window.innerWidth, window.innerHeight)
+        this.ssaoPass = new SSAOPass(this.scene, threeJsCamera, this.width, this.height)
         this.ssaoPass.kernelRadius = 0.115
         this.ssaoPass.output = SSAOPass.OUTPUT.Blur
         this.ssaoPass.minDistance = 0.00004
@@ -377,24 +394,24 @@ export class SceneRenderer
     {
         if (this.shouldRender)
         {
-            this.renderer.setSize(window.innerWidth, window.innerHeight)
+            this.renderer.setSize(this.width, this.height)
             this._prepareForSpecialEffects()
-            this.bloomComposer.setSize(window.innerWidth, window.innerHeight)
+            this.bloomComposer.setSize(this.width, this.height)
             this.bloomComposer.render()
             if (this.ssaoEnabled)
             {
-                this.ssaoComposer.setSize(window.innerWidth, window.innerHeight)
+                this.ssaoComposer.setSize(this.width, this.height)
                 this.ssaoComposer.render()
             }
             this._prepareForFinalPass()
-            this.sceneRenderComposer.setSize(window.innerWidth, window.innerHeight)
+            this.sceneRenderComposer.setSize(this.width, this.height)
             this.sceneRenderComposer.render()
             if (this.fxaaEnabled)
             {
-                this.fxaaPass.material.uniforms['resolution'].value.x = 1/(window.innerWidth * this.renderer.getPixelRatio())
-                this.fxaaPass.material.uniforms['resolution'].value.y = 1/(window.innerHeight * this.renderer.getPixelRatio())
+                this.fxaaPass.material.uniforms['resolution'].value.x = 1/(this.width * this.renderer.getPixelRatio())
+                this.fxaaPass.material.uniforms['resolution'].value.y = 1/(this.height * this.renderer.getPixelRatio())
             }
-            this.finalComposer.setSize(window.innerWidth, window.innerHeight)
+            this.finalComposer.setSize(this.width, this.height)
             this.finalComposer.render()
             if (this.stats != null)
                 this.stats.update()

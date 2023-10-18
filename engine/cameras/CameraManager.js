@@ -65,6 +65,28 @@ export class PerspectiveCamera
      * @param {Number} z z-coordinate in world space 
      */
     setRotation(x, y, z) { this.camera.rotation.set(x, y, z) }
+
+    /**
+     * Sets the camera aspect ratio
+     * @param {Number} aspect aspect ratio of camera 
+     */
+    setAspectRatio(aspect) { this.camera.aspect = aspect }
+
+    /**
+     * Sets the camera field of view
+     * @param {Number} fov field of view
+     */
+    setFOV(fov) 
+    {
+        if (fov > 0 && fov < 180) 
+            this.camera.fov = fov 
+    }
+
+    /**
+     * Gets the camera field of view
+     * @returns {Number} fov field of view
+     */
+    getFOV() { return this.camera.fov }
     
     /**
      * Returns world space position of the camera

@@ -20,6 +20,12 @@ export class AmbientLight extends SceneObject
     }
 
     /**
+     * Sets the light intensity
+     * @param {Number} intensity the intensity to be applied 
+     */
+    setIntensity(intensity) { this.light.intensity = intensity }
+
+    /**
      * Returns the list of lights attached with this object
      * @returns {Array} array of threejs lights
      */
@@ -113,6 +119,12 @@ export class DirectLight extends SceneObject
      */
     setPosition(x, y, z) { this.light.position.set(x, y, z) }
 
+    getPosition() { return this.light.position }
+
+    setRotation(x, y, z) { this.light.setRotationFromEuler(new THREE.Euler(x, y, z)) }
+
+    getRotation() { return this.light.rotation }
+
     /**
      * Sets the position where the light is supposed to look at
      * @param {Number} x x-coordinate in world space
@@ -120,6 +132,14 @@ export class DirectLight extends SceneObject
      * @param {Number} z z-coordinate in world space 
      */
     setLookAt(x, y, z) { this.light.target.position.set(x, y, z) }
+
+    getLookAt(x, y, z) { return this.light.target.position }
+
+    /**
+     * Sets the light intensity
+     * @param {Number} intensity the intensity to be applied 
+     */
+    setIntensity(intensity) { this.light.intensity = intensity }
 
     /**
      * Returns the list of drawable threejs meshes
@@ -207,6 +227,12 @@ export class PointLight extends SceneObject
      * @param {Number} z z-coordinate in world space 
      */
     setPosition(x, y, z) { this.light.position.set(x, y, z) }
+
+    /**
+     * Sets the light intensity
+     * @param {Number} intensity the intensity to be applied 
+     */
+    setIntensity(intensity) { this.light.intensity = intensity }
 
     /**
      * Returns the list of drawable threejs meshes
@@ -302,6 +328,12 @@ export class SpotLight extends SceneObject
      * @param {Number} z z-coordinate in world space 
      */
     setLookAt(x, y, z) { this.light.target.position.set(x, y, z) }
+
+    /**
+     * Sets the light intensity
+     * @param {Number} intensity the intensity to be applied 
+     */
+    setIntensity(intensity) { this.light.intensity = intensity }
 
     /**
      * Returns the list of drawable threejs meshes

@@ -42,7 +42,7 @@ export class StaticModel extends SceneObject
     setPosition(x, y, z) { this.mesh.position.set(x, y, z) }
 
     /**
-     * Sets the rotation of the mesh in world space
+     * Sets the rotation of the mesh in world space using euler values
      * @param {Number} x x-coordinate in world space
      * @param {Number} y y-coordinate in world space
      * @param {Number} z z-coordinate in world space 
@@ -109,15 +109,13 @@ export class MeshModel extends SceneObject
                     mesh.material.shadowSide = THREE.BackSide
                     mesh.receiveShadow = true
                     mesh.castShadow = true
-                    mesh.material.envMapIntensity = 0
+                    //mesh.material.envMapIntensity = 0
                 }
                 else if (mesh.material.opacity < 1)
                 {    
                     mesh.material.transparent = true
-                    mesh.material.envMapIntensity = 3
+                    //mesh.material.envMapIntensity = 3
                 }
-                mesh.material.map.anisotropy = 64
-                console.log(mesh.material.map)
             }
         })
         const clip = model.animations[0]
@@ -156,12 +154,43 @@ export class MeshModel extends SceneObject
     setPosition(x, y, z) { this.scene.position.set(x, y, z) }
 
     /**
-     * Sets the rotation of the mesh in world space
+     * Sets the rotation of the mesh in world space using euler values
      * @param {Number} x x-coordinate in world space
      * @param {Number} y y-coordinate in world space
      * @param {Number} z z-coordinate in world space 
      */
     setRotation(x, y, z) { this.scene.rotation.set(x, y, z) }
+
+    /**
+     * Sets the rotation of the mesh in world space using axis and angle
+     * @param {Vector3} axis axis of rotation
+     * @param {Number} angle angle of rotation in radians
+     */
+    setRotationFromAxisAngle(axis, angle) { this.scene.setRotationFromAxisAngle(axis, angle) }
+
+    setRotationFromAxisAngleFor(axis, angleInRadians, names)
+    {
+        Misc.postOrderTraversal(this.scene, mesh => {
+            if (mesh.material != undefined)
+            {    
+                for (let name of names)
+                {
+                    if (name == mesh.name)
+                    {        
+                        mesh.setRotationFromAxisAngle(axis, angleInRadians)
+                        break
+                    }
+                }  
+            }
+        }) 
+    }
+
+    /**
+     * Sets the rotation order for the model. Values should be one of the following in string :-
+     * XYZ, ZXY, YZX, XZY, YXZ, ZYX
+     * @param {String} order the rotation order in string
+     */
+    setRotationOrder(order) { this.scene.rotation.order = order }
 
     /**
      * Adds delta rotation into existing rotation values of the mesh in world space
@@ -203,6 +232,39 @@ export class MeshModel extends SceneObject
     getPosition() { return this.scene.position }
 
     /**
+     * 
+     * @type {THREE.ShaderMaterial} material
+     */
+    applyMaterial(material)
+    {
+        Misc.postOrderTraversal(this.scene, mesh => {
+            if (mesh.material != undefined)
+                mesh.material = material
+        }) 
+    }
+
+    /**
+     * 
+     * @type {THREE.ShaderMaterial} material
+     */
+    applyMaterialOn(material, names)
+    {
+        Misc.postOrderTraversal(this.scene, mesh => {
+            if (mesh.material != undefined)
+            {    
+                for (let name of names)
+                {
+                    if (name == mesh.name)
+                    {        
+                        mesh.material = material
+                        break
+                    }
+                }  
+            }
+        }) 
+    }
+
+    /**
     * Applies texture on the model.
     * @param {THREE.Texture} texture threejs texture object
     */
@@ -212,6 +274,34 @@ export class MeshModel extends SceneObject
             if (mesh.material != undefined)
                 mesh.material.map = texture 
         }) 
+    }
+
+    /**
+    * Applies texture on only those meshes whose names are given.
+    * @param {THREE.Texture} texture threejs texture object
+    * @param {Array} names names of meshes on which the texture should be applied
+    */
+    applyTextureOn(texture, names) 
+    { 
+        if (names.length > 0)
+        {
+            Misc.postOrderTraversal(this.scene, mesh => {
+                if (mesh.material != undefined)
+                {
+                    for (let name of names)
+                    {
+                        if (name == mesh.name)
+                        {        
+                            if (mesh.material.setDiffuseTexture != undefined)
+                                mesh.material.setDiffuseTexture(texture)
+                            else
+                                mesh.material.map = texture
+                            break
+                        }
+                    }    
+                }
+            }) 
+        }
     }
 
     /**
@@ -243,7 +333,7 @@ export class MeshModel extends SceneObject
 
     /**
     * Applies normal map on the model.
-    * @param {THREE.Color} normalMap normal map of scene
+    * @param {THREE.Texture} normalMap normal map of scene
     */
     applyNormalmap(normalMap)
     {
@@ -254,6 +344,109 @@ export class MeshModel extends SceneObject
                 mesh.material.needsUpdate = true
             }
         }) 
+    }
+
+    applyNormalmapOn(normalMap, names)
+    {
+        Misc.postOrderTraversal(this.scene, mesh => {
+            if (mesh.material != undefined && mesh.material.isMeshStandardMaterial != undefined && mesh.material.isMeshStandardMaterial)
+            {    
+                for (let name of names)
+                {
+                    if (name == mesh.name)
+                    {        
+                        mesh.material.normalMap = normalMap
+                        mesh.material.needsUpdate = true
+                        break
+                    }
+                }  
+            }
+        }) 
+    }
+
+    rotateNormalMapOf(angleInRadians, names)
+    {
+        Misc.postOrderTraversal(this.scene, mesh => {
+            if (mesh.material != undefined && mesh.material.isMeshStandardMaterial != undefined && mesh.material.isMeshStandardMaterial)
+            {    
+                for (let name of names)
+                {
+                    if (name == mesh.name)
+                    {        
+                        mesh.material.normalMap.rotation = angleInRadians
+                        mesh.material.normalMap.needsUpdate = true
+                        mesh.material.needsUpdate = true
+                        break
+                    }
+                }  
+            }
+        }) 
+    }
+
+    setTextureAnisotropy(value)
+    {
+        Misc.postOrderTraversal(this.scene, mesh => {
+            if (mesh.material != undefined)
+                mesh.material.map.anisotropy = value
+        })
+    }
+
+    setRoughness(roughness)
+    {
+        Misc.postOrderTraversal(this.scene, mesh => {
+            if (mesh.material != undefined)
+                mesh.material.roughness = roughness
+        })
+    }
+
+    setRoughnessOn(roughness, names) 
+    { 
+        if (names.length > 0)
+        {
+            Misc.postOrderTraversal(this.scene, mesh => {
+                if (mesh.material != undefined)
+                {
+                    for (let name of names)
+                    {
+                        if (name == mesh.name)
+                        {        
+                            if (mesh.material != undefined)
+                                mesh.material.roughness = roughness
+                            break
+                        }
+                    }    
+                }
+            }) 
+        }
+    }
+
+    setMetalness(metalness)
+    {
+        Misc.postOrderTraversal(this.scene, mesh => {
+            if (mesh.material != undefined)
+                mesh.material.metalness = metalness
+        })
+    }
+
+    setMetalnessOn(metalness, names) 
+    { 
+        if (names.length > 0)
+        {
+            Misc.postOrderTraversal(this.scene, mesh => {
+                if (mesh.material != undefined)
+                {
+                    for (let name of names)
+                    {
+                        if (name == mesh.name)
+                        {        
+                            if (mesh.material != undefined)
+                                mesh.material.metalness = metalness
+                            break
+                        }
+                    }    
+                }
+            }) 
+        }
     }
 
     /**

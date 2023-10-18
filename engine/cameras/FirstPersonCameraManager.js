@@ -26,7 +26,7 @@ export class FirstPersonCameraManager extends CameraManager
         if (inputManager != null)
         {
             inputManager.registerKeyEvent((w,s,a,d) => this.onKeyinput(w,s,a,d))
-            inputManager.registerMoveEvent((dx, dy) => this.onMoveEvent(dx, dy))
+            inputManager.registerLMBMoveEvent((dx, dy) => this.onMoveEvent(dx, dy))
             inputManager.setCursorSensitivity(0.05)
         }
     }
@@ -46,6 +46,12 @@ export class FirstPersonCameraManager extends CameraManager
      * @param {Number} z z-coordinate in world space 
      */
     setRotation(x, y, z) { this.core.setRotation(x, y, z) }
+
+    /**
+     * Sets the camera aspect ratio
+     * @param {Number} aspect aspect ratio of camera 
+     */
+    setAspectRatio(aspect) { this.core.setAspectRatio(aspect) }
         
     /**
      * Returns world space position of the camera

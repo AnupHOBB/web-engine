@@ -178,12 +178,17 @@ export class SceneManager
      */
     constructor(canvas)
     {
+        this.percentWidth = 1
+        this.percentHeight = 1
+        this.autoUpdateScreenSize = true
+        this.width = window.innerWidth * this.percentWidth
+        this.height = window.innerHeight *  this.percentHeight
         this.raycast = new RayCast()
         this.activeCameraManager = null
         this.sceneObjectMap = new Map()
         this.inactiveObjNameMap = new Map()
         this.messageMap = new Map()
-        this.sceneRenderer = new SceneRenderer(canvas)
+        this.sceneRenderer = new SceneRenderer(canvas, this.width, this.height)
         this._renderLoop()
     }
 
@@ -277,6 +282,19 @@ export class SceneManager
     }
 
     /**
+     * Defines how much percentge of screen should the canvas cover in width and height directions
+     * @param {Float} widthPercent percent of screen width that the canvas should cover
+     * @param {Float} heightPercent percent of screen height that the canvas should cover
+     */
+    setSizeInPercent(widthPercent, heightPercent)
+    {
+        if (widthPercent > 0 && widthPercent <= 1)
+            this.percentWidth = widthPercent
+        if (heightPercent > 0 && heightPercent <= 1)
+            this.percentHeight = heightPercent
+    }
+
+    /**
      * Allows scene objects to send message to a particular scene object.
      * @param {String} from name of the object that broadcasted the data
      * @param {String} to name of the object that should receive the data
@@ -310,10 +328,6 @@ export class SceneManager
                 this.sceneObjectMap.get(sceneObjectKey).onMessage(this, from, data)     
     }
 
-    /**
-     * 
-     * @param {*} envmap 
-     */
     setEnvironmentMap(envmap) { this.sceneRenderer.setEnvironmentMap(envmap) }
 
     setBloomPercentage(percent) { this.sceneRenderer.setBloomPercentage(percent) }
@@ -365,6 +379,12 @@ export class SceneManager
     showStats(htmlElement) { this.sceneRenderer.showStats(htmlElement) }
 
     /**
+     * Returns the maximum anisotropy value supported by the hardware
+     * @returns {Number} the maximum anisotropy value supported by the hardware
+     */
+    getMaxAnistropy() { this.sceneRenderer.getMaxAnistropy() }
+
+    /**
      * The loop that renders all drawable objects into the screen.
      * This functions resizes camera based on screen aspect ratio, checks if there are any new objects ready to be part of scene,
      * and notifies thos objects at the end of each iteration of render loop.
@@ -373,10 +393,16 @@ export class SceneManager
     {
         if (this.activeCameraManager != null && this.activeCameraManager != undefined)
         {
-            this.activeCameraManager.setAspectRatio(window.innerWidth/window.innerHeight)
             this.activeCameraManager.updateMatrices()
             this._queryReadyObjects()
             this.sceneRenderer.render()
+            if (this.autoUpdateScreenSize)
+            {
+                this.width = window.innerWidth * this.percentWidth
+                this.height = window.innerHeight *  this.percentHeight
+                this.activeCameraManager.setAspectRatio(this.width/this.height)
+                this.sceneRenderer.setSize(this.width, this.height)
+            }
             this._notifyObjects()
         }
         window.requestAnimationFrame(()=>this._renderLoop())

@@ -1,7 +1,6 @@
 import * as THREE from '../../node_modules/three/src/Three.js'
 import { CameraManager, PerspectiveCamera } from './CameraManager.js'
 import { OrbitControl } from '../OrbitControl.js'
-import { Maths } from '../helpers/maths.js'
 
 /**
  * Wraps OrbitalCameraManagerCore object.
@@ -28,7 +27,7 @@ export class OrbitalCameraManager extends CameraManager
     {
         if (inputManager != null)
         {
-            inputManager.registerMoveEvent((dx, dy) => this.core.onMoveEvent(dx, dy))
+            inputManager.registerLMBMoveEvent((dx, dy) => this.core.onMoveEvent(dx, dy))
             inputManager.setCursorSensitivity(0.5)
         }
     }
@@ -48,18 +47,18 @@ export class OrbitalCameraManager extends CameraManager
      * @param {Number} z z-coordinate in world space 
      */
     setRotation(x, y, z) { this.core.setRotation(x, y, z) }
+
+    /**
+     * Sets the camera aspect ratio
+     * @param {Number} aspect aspect ratio of camera 
+     */
+    setAspectRatio(aspect) { this.core.setAspectRatio(aspect) }
     
     /**
      * Returns world space position of the camera
      * @returns {THREE.Vector3} world space position of camera 
      */
     getPosition() { return this.core.getPosition() }
-
-    /**
-     * Sets the aspect ratio value in camera
-     * @param {Number} ratio camera aspect ratio
-     */
-    setAspectRatio(ratio) { this.core.camera.aspect = ratio }
 
     /**
      * Delegates call to ENGINE.PerspectiveCamera's updateMatrices
