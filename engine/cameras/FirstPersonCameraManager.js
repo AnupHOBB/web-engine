@@ -25,8 +25,8 @@ export class FirstPersonCameraManager extends CameraManager
     {
         if (inputManager != null)
         {
-            inputManager.registerKeyEvent((w,s,a,d) => this.onKeyinput(w,s,a,d))
-            inputManager.registerLMBMoveEvent((dx, dy) => this.onMoveEvent(dx, dy))
+            inputManager.registerKeyEvent((w,s,a,d) => this.core.onKeyinput(w,s,a,d))
+            inputManager.registerLMBMoveEvent((dx, dy) => this.core.onMoveEvent(dx, dy))
             inputManager.setCursorSensitivity(0.05)
         }
     }

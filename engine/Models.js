@@ -99,7 +99,9 @@ export class MeshModel extends SceneObject
     {
         super(name)
         this.scene = model.scene.clone()
+        this.meshMap = new Map()
         Misc.postOrderTraversal(this.scene, mesh => {
+            this.meshMap.set(mesh.name, mesh)
             if (mesh.material != undefined)
             {
                 if (cullBackFace != undefined && cullBackFace != null && cullBackFace)
@@ -109,13 +111,8 @@ export class MeshModel extends SceneObject
                     mesh.material.shadowSide = THREE.BackSide
                     mesh.receiveShadow = true
                     mesh.castShadow = true
-                    //mesh.material.envMapIntensity = 0
                 }
-                else if (mesh.material.opacity < 1)
-                {    
-                    mesh.material.transparent = true
-                    //mesh.material.envMapIntensity = 3
-                }
+                mesh.material.transparent = true
             }
         })
         const clip = model.animations[0]
@@ -127,6 +124,8 @@ export class MeshModel extends SceneObject
         }
         this.drawables = [{object: this.scene, isRayCastable: false}]
     }
+
+    enableRayCastingOnTriMesh(enable) { this.drawables[0].isRayCastable = enable }
 
     /**
      * Adds extra threejs object for rendering as part of this scene object
@@ -231,6 +230,10 @@ export class MeshModel extends SceneObject
     */
     getPosition() { return this.scene.position }
 
+    getRotation() { return this.scene.rotation }
+
+    getMesh(meshName) { return this.meshMap.get(meshName) }
+
     /**
      * 
      * @type {THREE.ShaderMaterial} material
@@ -261,6 +264,14 @@ export class MeshModel extends SceneObject
                     }
                 }  
             }
+        }) 
+    }
+
+    applyMap(materialName, mapType, map) 
+    { 
+        Misc.postOrderTraversal(this.scene, mesh => {
+            if (mesh.material != undefined && mesh.material.name == materialName && mesh.material[mapType] != undefined)
+                mesh.material[mapType] = map
         }) 
     }
 
@@ -449,6 +460,33 @@ export class MeshModel extends SceneObject
         }
     }
 
+    setSheen(sheen)
+    {
+        Misc.postOrderTraversal(this.scene, mesh => {
+            if (mesh.material != undefined)
+                mesh.material.sheen = sheen
+        })
+    }
+
+    setVisibility(visible)
+    {
+        Misc.postOrderTraversal(this.scene, mesh => {
+            if (mesh.material != undefined)
+                mesh.material.visible = visible
+        })
+    }
+
+    setOpacity(materialName, opacity) 
+    { 
+        Misc.postOrderTraversal(this.scene, mesh => {
+            if (mesh.material != undefined && mesh.material.name == materialName && mesh.material['opacity'] != undefined)
+            {    
+                mesh.material.opacity = opacity
+                mesh.material.transparent = true
+            }
+        }) 
+    }
+
     /**
     * Used for notifying the SceneManager if this object is ready to be included in scene.
     * @returns {Boolean} ready status of object
@@ -483,6 +521,9 @@ export class MeshModel extends SceneObject
                 }
             })
         }
+        let keys = this.meshMap.keys()
+        for (let key of keys)
+            this.meshMap.delete(key)
     }
 }
 

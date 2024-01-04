@@ -1,6 +1,7 @@
 import * as THREE from '../../node_modules/three/src/Three.js'
 import { CameraManager, PerspectiveCamera } from './CameraManager.js'
 import { OrbitControl } from '../OrbitControl.js'
+import { Maths } from '../helpers/maths.js'
 
 /**
  * Wraps OrbitalCameraManagerCore object.
@@ -11,12 +12,11 @@ export class OrbitalCameraManager extends CameraManager
      * @param {String} name name of the object which is used in sending or receiving message
      * @param {Number} fov camera field of view
      * @param {THREE.Vector3} axis orbit axis
-     * @param {THREE.Vector3} lookAtPosition point to focus on during orbit
      */
-    constructor(name, fov, lookAtPosition) 
+    constructor(name, fov) 
     { 
         super(name)
-        this.core = new OrbitalCameraManagerCore(fov, lookAtPosition) 
+        this.core = new OrbitalCameraManagerCore(fov) 
     }
 
     /**
@@ -27,7 +27,9 @@ export class OrbitalCameraManager extends CameraManager
     {
         if (inputManager != null)
         {
-            inputManager.registerLMBMoveEvent((dx, dy) => this.core.onMoveEvent(dx, dy))
+            inputManager.registerLMBMoveEvent((dx, dy) => this.core.orbit(dx, dy))
+            inputManager.registerRMBMoveEvent((dx, dy) => this.core.pan(dx, dy))
+            inputManager.registerMouseWheelEvent(s => this.core.zoom(s))
             inputManager.setCursorSensitivity(0.5)
         }
     }
@@ -47,6 +49,34 @@ export class OrbitalCameraManager extends CameraManager
      * @param {Number} z z-coordinate in world space 
      */
     setRotation(x, y, z) { this.core.setRotation(x, y, z) }
+
+    /**
+     * Sets the camera field of view
+     * @param {Number} fov field of view
+     */
+    setFOV(fov) 
+    {
+        if (fov > 0) 
+            this.core.camera.fov = fov 
+    }
+
+    /**
+     * Sets the position where the camera should look
+     * @param {THREE.Vector3} lookAt the position where the camera should look
+     */
+    setLookAt(lookAt) { this.core.setLookAt(lookAt) }
+
+    /**
+     * Sets the sensitivity of the camera pan movement
+     * @param {Number} sensitivity the sensitivity value for camera pan
+     */
+    setPanSensitivity(sensitivity) { this.core.setPanSensitivity(sensitivity) }
+
+    /**
+     * Sets the sensitivity of the camera zoom
+     * @param {Number} sensitivity the sensitivity value for camera zoom
+     */
+    setZoomSensitivity(sensitivity) { this.core.setZoomSensitivity(sensitivity) }
 
     /**
      * Sets the camera aspect ratio
@@ -97,12 +127,6 @@ export class OrbitalCameraManager extends CameraManager
      * @param {Function} restriction callback function that decides if the object position should be updated
      */
     addPitchRestriction(restriction) { this.core.addPitchRestriction(restriction) }
-
-    /**
-     * Returns a boolean value that indicates whether the camera is zoomed in or not,
-     * @returns {Boolean} the zoom status of camera
-     */
-    isZoomed() { return this.core.zoom }
 }
 
 /**
@@ -113,22 +137,50 @@ class OrbitalCameraManagerCore extends PerspectiveCamera
     /**
      * @param {Number} fov camera field of view
      * @param {THREE.Vector3} axis orbit axis
-     * @param {THREE.Vector3} lookAt point to focus on during orbit
      */
-    constructor(fov, lookAt)
+    constructor(fov)
     {
         super(fov)
-        this.orbitSpeed = 60
-        this.cameraOrbiterYaw = new OrbitControl(this.camera, lookAt)
-        this.cameraOrbiterPitch = new OrbitControl(this.camera, lookAt)
-        this.zoom = false
-        this.isZooming = false
-        this.ogPosition = this.camera.position
-        this.vDisplacement = new THREE.Vector3()
-        this.sourcePosition = this.camera.position
-        this.targetPosition = this.camera.position
-        this.targetDistance = 0
-        this.autoOrbiting = false
+        this.lookAt = new THREE.Vector3()
+        this.cameraOrbiterYaw = new OrbitControl(this.camera)
+        this.cameraOrbiterYaw.setCenter(this.lookAt)
+        this.cameraOrbiterPitch = new OrbitControl(this.camera)
+        this.cameraOrbiterPitch.setCenter(this.lookAt)
+        this.cameraOrbiterPitch.addRestriction((d, p) => this.pitchRestriction(d))
+        this.panSensitivity = 0.01
+        this.zoomSensitivity = 0.01
+    }
+
+    /**
+     * Sets the position where the camera should look
+     * @param {THREE.Vector3} lookAt the position where the camera should look
+     */
+    setLookAt(lookAt) 
+    { 
+        this.lookAt = lookAt
+        this.cameraOrbiterYaw.setCenter(this.lookAt)
+        this.cameraOrbiterPitch.setCenter(this.lookAt)
+        this.camera.lookAt(lookAt)
+    }
+
+    /**
+     * Sets the sensitivity of the camera pan movement
+     * @param {Number} sensitivity the sensitivity value for camera pan
+     */
+    setPanSensitivity(sensitivity) 
+    { 
+        if (sensitivity > 0)
+            this.panSensitivity = sensitivity 
+    }
+
+    /**
+     * Sets the sensitivity of the camera zoom
+     * @param {Number} sensitivity the sensitivity value for camera zoom
+     */
+    setZoomSensitivity(sensitivity) 
+    { 
+        if (sensitivity > 0)
+            this.zoomSensitivity = sensitivity 
     }
 
     /**
@@ -144,20 +196,56 @@ class OrbitalCameraManagerCore extends PerspectiveCamera
     addPitchRestriction(restriction) { this.cameraOrbiterPitch.addRestriction(restriction) }
 
     /**
-     * Called by InputManager whenever it detects mouse movement. This function is only called
-     * when the user holds LMB or RMB and moves the mouse.
+     * Called by InputManager whenever it detects cursor movement. This function is only called when the user holds LMB and moves the mouse.
      * This function rotates the the camera around based on mouse movement.
      * @param {Number} deltaX displacement of cursor in x-direction
      * @param {Number} deltaY displacement of cursor in y-direction
-     * @param {Number} x position of cursor in x-axis
-     * @param {Number} y position of cursor in y-axis
      */
-    onMoveEvent(deltaX, deltaY, x, y) 
+    orbit(deltaX, deltaY) 
     { 
-        if (!this.zoom && !this.isZooming)
-        {    
-            this.cameraOrbiterYaw.pan(new THREE.Vector3(0, 1, 0), -deltaX) 
-            this.cameraOrbiterPitch.pan(this.right, -deltaY)
-        }
+        this.cameraOrbiterYaw.orbit(new THREE.Vector3(0, 1, 0), -deltaX) 
+        this.cameraOrbiterPitch.orbit(this.right, -deltaY)
+        this.updateMatrices()
+    }
+
+    /**
+     * Called by InputManager whenever it detects mouse wheel movement.
+     * This function zooms in and out the camera by changing its field of view.
+     * @param {Number} scale this value will be 1 if wheel is moving forwar, -1 if backward and 0 if wheel is staionary
+     */
+    zoom(scale) 
+    { 
+        let position = Maths.addVectors(this.camera.position, Maths.scaleVector(this.front, -scale * this.zoomSensitivity))
+        let lookAt2Position = Maths.subtractVectors(position, this.lookAt)
+        let dot = Maths.dot(lookAt2Position, this.front)
+        if (dot < 0)
+            this.camera.position.set(position.x, position.y, position.z)
+    }
+
+    /**
+     * Called by InputManager whenever it detects cursor movement. This function is only called when the user holds RMB and moves the mouse.
+     * This function pans the camera
+     * @param {Number} deltaX displacement of cursor in x-direction
+     * @param {Number} deltaY displacement of cursor in y-direction
+     */
+    pan(deltaX, deltaY)
+    {
+        let position = Maths.addVectors(this.camera.position, Maths.scaleVector(this.right, deltaX * this.panSensitivity))
+        position = Maths.addVectors(position, Maths.scaleVector(this.up, -deltaY * this.panSensitivity))
+        this.camera.position.set(position.x, position.y, position.z)
+        this.lookAt = Maths.addVectors(this.lookAt, Maths.scaleVector(this.right, deltaX * this.panSensitivity))
+        this.lookAt = Maths.addVectors(this.lookAt, Maths.scaleVector(this.up, -deltaY * this.panSensitivity))
+        this.cameraOrbiterYaw.setCenter(this.lookAt)
+        this.cameraOrbiterPitch.setCenter(this.lookAt)
+    }
+
+    /**
+     * Restricts camera pitc rotation in between -89 to 89 degrees
+     */
+    pitchRestriction(target)
+    {
+        let vLookAt2target = Maths.subtractVectors(target, this.lookAt)
+        let dot = Maths.dot(vLookAt2target, Maths.scaleVector(new THREE.Vector3(this.front.x, 0, this.front.z), -1))
+        return [dot > 0.017, target]
     }
 }

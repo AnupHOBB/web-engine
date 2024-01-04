@@ -14,6 +14,12 @@ export class CameraManager extends SceneObject
     constructor(name) { super(name) }
 
     /**
+     * Delegates call to the register input function of OrbitalCameraManagerCore
+     * @param {InputManager} inputManager the input manager object that manages user input 
+     */
+    registerInput(inputManager) {}
+
+    /**
      * Returns the threejs camera object stored within
      * @returns {THREE.PerspectiveCamera} threejs camera object
      */
@@ -24,12 +30,6 @@ export class CameraManager extends SceneObject
      * @param {SceneManager} sceneManager the SceneManager object
      */
     onActive(sceneManager) {}
-
-    /**
-     * Returns a boolean value that indicates whether the camera is zoomed in or not,
-     * @returns {Boolean} the zoom status of camera
-     */
-    isZoomed() { return false }
 }
 
 /**

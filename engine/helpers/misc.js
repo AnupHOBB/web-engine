@@ -26,6 +26,25 @@ export const Misc =
     },
 
     /**
+     * Converts color object to hexadecimal color value in string
+     * @param {THREE.Color} rgb value as threejs color
+     * @returns {String} hex hexadecimal color value as string
+     */
+    colorToHex : function(color)
+    {
+        let scaledR = color.r * 255
+        let hexR = scaledR.toString(16)
+        hexR = (hexR.length == 1) ? '0'+hexR : hexR
+        let scaledG = color.g * 255
+        let hexG = scaledG.toString(16)
+        hexG = (hexG.length == 1) ? '0'+hexG : hexG
+        let scaledB = color.b * 255
+        let hexB = scaledB.toString(16)
+        hexB = (hexB.length == 1) ? '0'+hexB : hexB
+        return ('#'+hexR+hexG+hexB).toUpperCase()
+    },
+
+    /**
      * Converts dimension value in px as string to valid numerical valu without format appended to it.
      * @param {String} pxString 
      */

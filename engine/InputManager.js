@@ -8,13 +8,12 @@ export class InputManager extends SceneObject
 { 
     /**
      * @param {String} name name of the object which is used in sending or receiving message
-     * @param {HTMLCanvasElement} canvas HTML canvas element
      */
-    constructor(name, canvas)
+    constructor(name)
     {
         super(name)
         this.keyEvent = new KeyEventCore()
-        this.cursorEvent = new CursorEventCore(canvas)
+        this.cursorEvent = new CursorEventCore()
     }
 
     /**
@@ -151,15 +150,11 @@ export class InputManager extends SceneObject
  */
 class CursorEventCore
 {
-    /**
-     * 
-     * @param {HTMLCanvasElement} canvas html canvas element
-     */
-    constructor(canvas)
+    constructor()
     {
         this.enable = true
         this.firstClicks = [true, true, true, true]
-        this.lastXY = { x: 0, y: 0 }
+        this.lastXYs = [{ x: 0, y: 0 }, { x: 0, y: 0 }, { x: 0, y: 0 }, { x: 0, y: 0 }]
         this.sensitivity = 1
         this.clickCallbacks = [[],[],[],[]]
         this.moveCallbacks = [[],[],[],[]]
@@ -167,23 +162,22 @@ class CursorEventCore
         this.wheelCallbacks = []
         this.buttonPresses = [false, false, false, false]
         this.buttonDblTapCounter = [0, 0, 0, 0]
-        this.registerCanvasEvents(canvas)
+        this.registerCanvasEvents()
     }
 
     /**
-     * Registers event listeners to the canvas element that is passed.
-     * @param {HTMLCanvasElement} canvas html canvas element
+     * Registers event listeners
      */
-    registerCanvasEvents(canvas)
+    registerCanvasEvents()
     {
-        document.addEventListener('contextmenu', e=>event.preventDefault())
-        canvas.addEventListener('mousedown', e=>this.onButtonPress(e))
-        canvas.addEventListener('mouseup', e=>this.onButtonRelease(e))
-        canvas.addEventListener('mousemove', e=>this.onCursorMove(e))
-        canvas.addEventListener('touchstart', e=>this.onButtonPress(e))
-        canvas.addEventListener('touchend', e=>this.onButtonRelease(e))
-        canvas.addEventListener('touchmove', e=>this.onCursorMove(e))
-        canvas.addEventListener('wheel', e=>this.onMouseWheelRoll(e))
+        document.addEventListener('contextmenu', e=>e.preventDefault())
+        document.addEventListener('mousedown', e=>this.onButtonPress(e))
+        document.addEventListener('mouseup', e=>this.onButtonRelease(e))
+        document.addEventListener('mousemove', e=>this.onCursorMove(e))
+        document.addEventListener('touchstart', e=>this.onButtonPress(e))
+        document.addEventListener('touchend', e=>this.onButtonRelease(e))
+        document.addEventListener('touchmove', e=>this.onCursorMove(e))
+        document.addEventListener('wheel', e=>this.onMouseWheelRoll(e))
     }
 
     /**
@@ -204,7 +198,7 @@ class CursorEventCore
                 callbackIndex = 3
             }
             else
-                callbackIndex = event.which - 1
+                callbackIndex = event.button
             this.buttonPresses[callbackIndex] = true 
             this.buttonDblTapCounter[callbackIndex] = this.buttonDblTapCounter[callbackIndex] + 1
             if (this.buttonDblTapCounter[callbackIndex] > 2)
@@ -238,9 +232,9 @@ class CursorEventCore
      */
     onButtonRelease(event)
     {
-        this.buttonPresses[event.which - 1] = false
-        this.firstClicks[event.which - 1] = true
-        this.lastXY = { x: 0, y: 0 }
+        this.buttonPresses[event.button] = false
+        this.firstClicks[event.button] = true
+        this.lastXYs[event.button] = { x: 0, y: 0 }
     }
 
     /**
@@ -256,26 +250,28 @@ class CursorEventCore
         if (event.type == 'touchmove') 
             callbackIndex = 3
         else
-            callbackIndex = event.which - 1
-        if (callbackIndex >= 0 && callbackIndex < this.moveCallbacks.length)
+            callbackIndex = this.toButtonIndex(event.buttons)
+        let buttonPress = this.buttonPresses[callbackIndex]
+        if (buttonPress && callbackIndex >= 0 && callbackIndex < this.moveCallbacks.length)
         {
             let callbacks = this.moveCallbacks[callbackIndex]
             if (callbacks.length > 0 && this.buttonPresses[callbackIndex])
             {    
                 if (event.type == 'touchmove') 
                     event = event.touches[0]
-                if (this.firstClicks[event.which - 1])
+                if (this.firstClicks[callbackIndex])
                 {
-                    this.lastXY = { x: event.clientX, y: event.clientY }
-                    this.firstClicks[event.which - 1] = false
+                    this.lastXYs[callbackIndex] = { x: event.clientX, y: event.clientY }
+                    this.firstClicks[callbackIndex] = false
                 }
+                let lastXY = this.lastXYs[callbackIndex]
                 this.currentXY = { x: event.clientX, y: event.clientY }
-                let deltaX = (this.currentXY.x - this.lastXY.x) * this.sensitivity
-                let deltaY = (this.currentXY.y - this.lastXY.y) * this.sensitivity
+                let deltaX = (this.currentXY.x - lastXY.x) * this.sensitivity
+                let deltaY = (this.currentXY.y - lastXY.y) * this.sensitivity
                 let callbacks = this.moveCallbacks[callbackIndex]
                 for (let moveCallback of callbacks)
                     moveCallback(deltaX, deltaY, event.clientX, event.clientY)
-                this.lastXY = this.currentXY
+                this.lastXYs[callbackIndex] = this.currentXY
             }
         }
     }
@@ -287,7 +283,7 @@ class CursorEventCore
      */
     onDblClick(event)
     {
-        let callbacks = this.dblClickCallbacks[event.which - 1]
+        let callbacks = this.dblClickCallbacks[event.button]
         for (let dblClickCallback of callbacks)
             dblClickCallback(event)
     }
@@ -302,6 +298,32 @@ class CursorEventCore
         {    
             for (let wheelCallback of this.wheelCallbacks)
                 wheelCallback(event.deltaY/100)
+        }
+    }
+
+    /**
+     * Converts the mouse button move event index to their actual index. During mouse move event, the browser sets the event.button value as zero no matter
+     * which button is pressed during move. Thus, to determine which buttons are pressed, the buttons field in the mouse event object is used that maps out
+     * the button index as mentioned in this website : https://developer.mozilla.org/en-US/docs/Web/API/MouseEvent/button
+     * @param {Number} moveEventIndex index of the mouse button during mouse move
+     * @returns 
+     */
+    toButtonIndex(moveEventIndex)
+    {
+        switch (moveEventIndex)
+        {
+            case 1 :
+                return 0;
+            case 2 :
+                return 2;
+            case 4 :
+                return 1;
+            case 8 :
+                return 3;
+            case 16 :
+                return 4;
+            default :
+                return 0;
         }
     }
 }

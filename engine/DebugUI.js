@@ -116,6 +116,19 @@ export class DebugUI
     }
 
     /**
+     * Updates the value of the debug ui element whose group name and param name is given
+     * @param {String} groupName name of the sub menu where the element is placed
+     * @param {String} paramName label that is displayed besides the element
+     * @param {any} value the new value to be set on element
+     */
+    updateElement(groupName, paramName, value)
+    {
+        let element = this._elements.get(groupName+'/'+paramName)
+        if (element != undefined)
+            element.setValue(value)
+    }
+
+    /**
      * Displays the debug menu
      */
     show() { this._gui.open() }

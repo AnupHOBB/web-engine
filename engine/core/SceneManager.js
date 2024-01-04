@@ -189,6 +189,7 @@ export class SceneManager
         this.inactiveObjNameMap = new Map()
         this.messageMap = new Map()
         this.sceneRenderer = new SceneRenderer(canvas, this.width, this.height)
+        this.canvas = canvas
         this._renderLoop()
     }
 
@@ -211,7 +212,7 @@ export class SceneManager
     }
 
     /**
-     * Unegisters the SceneObject into SceneManager.
+     * Unregisters the SceneObject into SceneManager.
      * @param {String} name name of the sceneObject that is registered in the scene manager.
      */
     unregister(name)
@@ -222,21 +223,6 @@ export class SceneManager
             this._removeFromScene(sceneObject)
             sceneObject.onSceneEnd(this)
             this.sceneObjectMap.delete(name)
-        }
-    }
-
-    /**
-     * Checks any messages for the scene object in the notice board and sends that message to it if there is one.
-     * @param {SceneObject} sceneObject sceneObject that needs to be notified if a message was posted for it.
-     */
-    _checkMessages(sceneObject)
-    {
-        let messages = this.messageMap.get(sceneObject.name)
-        if (messages != undefined)
-        {
-            for (let message of messages)
-                sceneObject.onMessage(this, message.from, message.data)
-            this.messageMap.delete(sceneObject.name)
         }
     }
 
@@ -254,16 +240,21 @@ export class SceneManager
         let [rasterCoord, isValid] = this.activeCameraManager.worldToRaster(worldPosition)
         if (isValid)
         {        
-            let hitPointWorld = this.raycast.raycast(rasterCoord, this.activeCameraManager)
-            isValid &&= hitPointWorld != undefined
-            if (isValid)
+            let hitPointData = this.raycast.raycast(rasterCoord, this.activeCameraManager)
+            if (hitPointData != undefined && hitPointData.length > 0)
             {
-                let viewPosition = this.activeCameraManager.worldToView(worldPosition)
-                let hitPointView = this.activeCameraManager.worldToView(hitPointWorld)
-                isValid &&= viewPosition.z <= hitPointView.z
-            }
+                let hitPointWorld = hitPointData[0].point
+                isValid &&= hitPointWorld != undefined
+                if (isValid)
+                {
+                    let viewPosition = this.activeCameraManager.worldToView(worldPosition)
+                    let hitPointView = this.activeCameraManager.worldToView(hitPointWorld)
+                    isValid &&= viewPosition.z <= hitPointView.z
+                    return [rasterCoord, isValid]
+                }
+            }      
         } 
-        return [rasterCoord, isValid]
+        return [, false]
     }
 
     /**
@@ -328,7 +319,7 @@ export class SceneManager
                 this.sceneObjectMap.get(sceneObjectKey).onMessage(this, from, data)     
     }
 
-    setEnvironmentMap(envmap) { this.sceneRenderer.setEnvironmentMap(envmap) }
+    setBackground(background) { this.sceneRenderer.setBackground(background) }
 
     setBloomPercentage(percent) { this.sceneRenderer.setBloomPercentage(percent) }
 
@@ -378,11 +369,73 @@ export class SceneManager
 
     showStats(htmlElement) { this.sceneRenderer.showStats(htmlElement) }
 
+    enableOutlining(enable) { this.sceneRenderer.enableOutlining(enable) }
+
+    changeOutlineColor(visibleEdgeColor, hiddenEdgeColor) { this.sceneRenderer.changeOutlineColor(visibleEdgeColor, hiddenEdgeColor) }
+
+    changeOutlineThickness(thickness) { this.sceneRenderer.changeOutlineThickness(thickness) }
+
+    changeOutlineGlow(glow) { this.sceneRenderer.changeOutlineGlow(glow) }
+
+    changeOutlineStrength(strength) { this.sceneRenderer.changeOutlineStrength(strength) }
+
+    outlineNearestObjectAt(rasterCoord, onOutline)
+    {
+        if (rasterCoord != undefined && rasterCoord.x >= 0 && rasterCoord.x < window.innerWidth && rasterCoord.y >= 0 && rasterCoord.y < window.innerHeight)
+        {
+            let bounds = this.canvas.getBoundingClientRect()
+            let ndcX = (rasterCoord.x / bounds.width) *  2 - 1
+            let ndcY = -(rasterCoord.y / bounds.height) *  2 + 1
+            let hitPointDataArray = this.raycast.raycast({x: ndcX, y: ndcY}, this.activeCameraManager)
+            let hitPointDataObject, meshes = []
+            if (hitPointDataArray != undefined && hitPointDataArray.length > 0)    
+            {    
+                hitPointDataObject = hitPointDataArray[0]
+                meshes.push(hitPointDataArray[0].object)
+            }
+            if (onOutline != undefined)
+            {    
+                this.sceneRenderer.addObjectsToOutline(meshes)
+                onOutline(hitPointDataObject)
+            }
+        }
+    }
+
+    outlineMeshOf(sceneObjectName, meshName)
+    {
+        let sceneObject = this.sceneObjectMap.get(sceneObjectName)
+        if (sceneObject != undefined)
+        {
+            try
+            {
+                let mesh = sceneObject.getMesh(meshName)
+                if (mesh != undefined && mesh != null)
+                    this.sceneRenderer.addObjectsToOutline([mesh])
+            }
+            catch (e) {}
+        }
+    }
+
     /**
      * Returns the maximum anisotropy value supported by the hardware
      * @returns {Number} the maximum anisotropy value supported by the hardware
      */
     getMaxAnistropy() { this.sceneRenderer.getMaxAnistropy() }
+
+    /**
+     * Checks any messages for the scene object in the notice board and sends that message to it if there is one.
+     * @param {SceneObject} sceneObject sceneObject that needs to be notified if a message was posted for it.
+     */
+    _checkMessages(sceneObject)
+    {
+        let messages = this.messageMap.get(sceneObject.name)
+        if (messages != undefined)
+        {
+            for (let message of messages)
+                sceneObject.onMessage(this, message.from, message.data)
+            this.messageMap.delete(sceneObject.name)
+        }
+    }
 
     /**
      * The loop that renders all drawable objects into the screen.

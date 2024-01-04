@@ -14,6 +14,7 @@ import { ShaderPass } from '../../node_modules/three/examples/jsm/postprocessing
 import { SSAOPass } from '../../node_modules/three/examples/jsm/postprocessing/SSAOPass.js'
 import { SSAARenderPass } from '../../node_modules/three/examples/jsm/postprocessing/SSAARenderPass.js'
 import { FXAAShader } from '../../node_modules/three/examples/jsm/shaders/FXAAShader.js'
+import { OutlinePass } from '../../node_modules/three/examples/jsm/postprocessing/OutlinePass.js'
 import { Misc } from '../helpers/misc.js'
 import { Stats } from './Stats.js'
 
@@ -55,6 +56,7 @@ export class SceneRenderer
         this.renderPass = null
         this.ssaoPass = null
         this.ssaaPass = null
+        this.outlinePass = null
         this.pixelMergerPass = new PixelMergerPass(this.sceneRenderComposer.readBuffer.texture, this.ssaoComposer.readBuffer.texture)
         this.saturationPass = new SaturationPass(1)
         this.contrastPass = new ContrastPass(0)
@@ -75,11 +77,13 @@ export class SceneRenderer
         this.finalComposer.addPass(this.colorBalancePass)
         this.finalComposer.addPass(this.gammaPass)
         this.groundReflector = null
-        this.envmap = new THREE.Color(1, 1, 1)
+        this.background = new THREE.Color(1, 1, 1)
         this.fxaaEnabled = true
         this.ssaaEnabled = false
         this.ssaoEnabled = false
+        this.outliningEnabled = false
         this.blackMaterial = new THREE.MeshBasicMaterial({color: new THREE.Color(0, 0, 0)})
+        this.threeJsCamera = null
         this.stats = null
     }
 
@@ -95,13 +99,14 @@ export class SceneRenderer
     }
 
     /**
-     * Sets the environment map to the scene
-     * @param {THREE.Texture} envmap environment map to be applied on the scene 
+     * Sets the background to the scene. Valid values should either of type color, texture or cubetexture
+     * @param {THREE.Texture, THREE.Color, THREE.CubeTexture} background environment map to be applied on the scene 
      */
-    setEnvironmentMap(envmap)
+    setBackground(background)
     {
-        envmap.mapping = THREE.EquirectangularReflectionMapping
-        this.envmap = envmap
+        if (background.isTexture)
+            background.mapping = THREE.EquirectangularReflectionMapping
+        this.background = background
     }
 
     /**
@@ -306,6 +311,62 @@ export class SceneRenderer
      */
     showStats(htmlElement) { this.stats = new Stats(this.renderer, htmlElement) }
 
+    enableOutlining(enable)
+    {
+        this.outliningEnabled = enable
+        if (this.outliningEnabled && this.threeJsCamera != null)
+        {
+            this.outlinePass = new OutlinePass(new THREE.Vector2(window.innerWidth/window.innerHeight), this.scene, this.threeJsCamera)
+            this.sceneRenderComposer.insertPass(this.outlinePass, 1)
+        }
+        else
+            this._deletePassInComposer(this.outlinePass, this.sceneRenderComposer)
+    }
+
+    addObjectsToOutline(threeJsObjects)
+    {
+        if (this.outliningEnabled && this.outlinePass != null)
+            this.outlinePass.selectedObjects = threeJsObjects
+    }
+
+    changeOutlineColor(visibleEdgeColor, hiddenEdgeColor)
+    {
+        if (this.outliningEnabled)
+        {
+            if (visibleEdgeColor != undefined && visibleEdgeColor.isColor != undefined && visibleEdgeColor.isColor)
+                this.outlinePass.visibleEdgeColor = visibleEdgeColor 
+            if (hiddenEdgeColor != undefined && hiddenEdgeColor.isColor != undefined && hiddenEdgeColor.isColor)
+                this.outlinePass.hiddenEdgeColor = hiddenEdgeColor
+        }
+    }
+
+    changeOutlineThickness(thickness) 
+    { 
+        if (this.outliningEnabled)
+        {
+            if (thickness != undefined)
+                this.outlinePass.edgeThickness = thickness 
+        }
+    }
+
+    changeOutlineGlow(glow) 
+    { 
+        if (this.outliningEnabled)
+        {
+            if (glow != undefined)
+                this.outlinePass.edgeGlow = glow
+        }
+    }
+
+    changeOutlineStrength(strength) 
+    { 
+        if (this.outliningEnabled)
+        {
+            if (strength != undefined)  
+                this.outlinePass.edgeStrength = strength
+        }
+    }
+
     /**
      * This function adds the threejs object based on its properties. If the threejs object is light, then it will be
      * included in the threejs scene directly. If the threejs object is a luminant mesh, then the threejs object will 
@@ -384,6 +445,13 @@ export class SceneRenderer
         this.ssaaPass.unbiased = true
         this.sceneRenderComposer.insertPass((this.ssaaEnabled) ? this.ssaaPass : this.renderPass, 0)
         this.shouldRender = true
+        this.threeJsCamera = threeJsCamera
+        if (this.outliningEnabled)
+        {
+            this._deletePassInComposer(this.outlinePass, this.sceneRenderComposer)
+            this.outlinePass = new OutlinePass(new THREE.Vector2(window.innerWidth/window.innerHeight), this.scene, threeJsCamera)
+            this.sceneRenderComposer.insertPass(this.outlinePass, 1)
+        }
     }
 
     /**
@@ -458,7 +526,7 @@ export class SceneRenderer
         }
         for (let bloomSceneObject of this.bloomObjects)
             Misc.postOrderTraversal(bloomSceneObject, obj=>this._removeFromScene(obj))
-        this.scene.background = this.envmap
+        this.scene.background = this.background
     }
 
     /**

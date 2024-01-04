@@ -8,7 +8,7 @@ export class RayCast
     constructor()
     {
         this.raycaster = new THREE.Raycaster()
-        this.raycastObjectMap = new Map()
+        this.raycastNameMap = new Map()
         this.raycastObjects = []
     }
 
@@ -19,12 +19,12 @@ export class RayCast
      */
     add(name, raycastObject) 
     { 
-        let objects = this.raycastObjectMap.get(name)
-        if (objects != undefined)
-            objects.push(raycastObject)
-        else
-            this.raycastObjectMap.set(name, [raycastObject])
-        this.raycastObjects.push(raycastObject)
+        let entry = this.raycastNameMap.get(name)
+        if (entry == undefined)
+        {
+            this.raycastNameMap.set(name, raycastObject)
+            this.raycastObjects.push(raycastObject)
+        }
     }
 
     /**
@@ -33,27 +33,24 @@ export class RayCast
      */
     remove(name) 
     { 
-        let objects = this.raycastObjectMap.get(name)
-        if (objects != undefined)
+        let raycastObject = this.raycastNameMap.get(name)
+        if (raycastObject != undefined)
         {
-            for (let raycastObject of objects)
-                this.raycastObjects.splice(this.raycastObjects.indexOf(raycastObject), 1)
-            this.raycastObjects = Array.from(this.raycastObjectMap.values())
+            let index = this.raycastObjects.indexOf(raycastObject)
+            this.raycastObjects.splice(index, 1)
+            this.raycastNameMap.delete(name)
         }
     }
 
     /**
      * Raycasts among objects and returns the hit point.
-     * @param {THREE.Vector2} rasterCoord raster coordinate that is used as the ray cast origin point
+     * @param {THREE.Vector2} ndcCoord normalized device coordinate that is used as the ray cast origin point
      * @param {BaseCameraManager} cameraManager BaseCameraManager object
-     * @returns {THREE.Vector3} hit point in world space
+     * @returns {Array} array of hit point data
      */
-    raycast(rasterCoord, cameraManager)
+    raycast(ndcCoord, cameraManager)
     {
-        let screenSpaceX = (rasterCoord.x / window.innerWidth) *  2 - 1
-        let screenSpaceY = -(rasterCoord.y / window.innerHeight) *  2 + 1
-        this.raycaster.setFromCamera({ x: screenSpaceX, y: screenSpaceY }, cameraManager.getCamera())
-        let hitObjects = this.raycaster.intersectObjects(this.raycastObjects)
-        return (hitObjects.length > 0) ? hitObjects[0].point : undefined
+        this.raycaster.setFromCamera(ndcCoord, cameraManager.getCamera())
+        return this.raycaster.intersectObjects(this.raycastObjects)
     }
 }
